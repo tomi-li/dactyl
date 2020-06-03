@@ -6,7 +6,8 @@ import {
   Status,
   STATUS_TEXT,
   walkSync,
-  _
+  _,
+  Context,
 } from "./deps.ts";
 
 import { Router } from "./Router.ts";
@@ -30,6 +31,9 @@ export class Application {
   private app: OakApplication;
 
   public constructor(appConfig: ApplicationConfig) {
+    const config: ApplicationConfig["config"] = appConfig.config ?? {};
+    const { log = true, timing = true, cors = true }: any = config;
+
     this.router = new Router();
     this.app = new OakApplication();
 
@@ -37,45 +41,23 @@ export class Application {
       this.router.register(controller);
     }
 
-    // configure timing console feedback here
-    this.app.use(
-      async (context: any, next: Function): Promise<void> => {
-        const start: number = Date.now();
-        await next();
-        const ms: number = Date.now() - start;
-        context.response.headers.set("X-Response-Time", `${ms}ms`);
-      }
-    );
-    // log middleware
-    this.app.use(
-      async (context: any, next: Function): Promise<void> => {
-        const method: string = context.request.method;
-        const urlRaw: URL = context.request.url;
-        const date: string = new Date().toTimeString();
-
-        await next();
-        const status: Status = context.response.status;
-        console.info(
-          `${date} [${method.toUpperCase()}] - ${urlRaw.pathname} - [${status} ${STATUS_TEXT.get(
-            status
-          )}]`
-        );
-      }
-    );
-
     // apply routes
     this.app.use(this.router.middleware());
+    // if routes passes through, handle not found with 404 response.
+    this.app.use(this.handleNotFound);
+  }
 
-    // 404 handler
-    this.app.use((context: any): void => {
-      const response: Response = context.response;
+  /**
+   * 404 middleware, enabled by default and not disableable
+   */
+  private async handleNotFound(context: Context): Promise<void> {
+    const response: Response = context.response;
 
-      response.status = 404;
-      response.body = {
-        error: "Not Found",
-        status: 404,
-      };
-    });
+    response.status = 404;
+    response.body = {
+      error: "Not Found",
+      status: 404,
+    };
   }
 
   /**
@@ -86,7 +68,6 @@ export class Application {
    * an argument.
    */
   public async run(port: number): Promise<void> {
-
     for (const fileInfo of walkSync("./example")) {
       // @ts-ignore
       if (fileInfo.isFile && _.endsWith(fileInfo.name, ".ts")) {
@@ -95,6 +76,7 @@ export class Application {
       }
     }
     console.info(`Dactyl running - please visit http://localhost:${port}/\n\n[LOGS]`);
+    const bootstrapMsg: string = this.router.getBootstrapMsg();
     this.app.listen({ port });
   }
 }

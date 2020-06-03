@@ -85,8 +85,9 @@ class DinosaurController {
     @Request() req: OakRequest,
     @Response() res: OakResponse
   ) {
-    return {
-      message: `Deleted dinosaur with id ${ctx.params.id}`,
+    res.status = 404;
+    res.body = {
+      msg: `No dinosaur found with id ${ctx.params.id}`
     };
   }
 }

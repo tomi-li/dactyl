@@ -1,7 +1,6 @@
 // Copyright 2020 Liam Tan. All rights reserved. MIT license.
 
 import { Router as OakRouter, Middleware } from "./deps.ts";
-
 import {
   RouteDefinition,
   HttpMethod,
@@ -9,11 +8,12 @@ import {
   ControllerMetadata,
   RouteArgument,
   Newable,
+  ControllerCallback,
 } from "./types.ts";
 
-import { HttpException } from "./HttpException.ts";
-import { RouterContext, Status, STATUS_TEXT } from "./deps.ts";
-import { getControllerOwnMeta, defaultMetadata } from "./metadata.ts";
+import { HttpException, InternalServerErrorException } from "./HttpException.ts";
+import { RouterContext, Status } from "./deps.ts";
+import { getControllerOwnMeta } from "./metadata.ts";
 
 /**
  * Router subclass - abstraction on top of `Router` class from Oak.
@@ -22,9 +22,8 @@ import { getControllerOwnMeta, defaultMetadata } from "./metadata.ts";
  * `Application` class for bootstrapping Oak application
  */
 export class Router extends OakRouter {
-  public constructor() {
-    super();
-    console.info(`\
+
+  private static LOGO_ASCII = `\
 ______           _         _ 
 |  _  \\         | |       | |
 | | | |__ _  ___| |_ _   _| |
@@ -33,8 +32,12 @@ ______           _         _
 |___/ \\__,_|\\___|\\__|\\__, |_| FRAMEWORK
                       __/ |  
                       |___/   
-    `);
-    console.info("Registered routes:\n");
+  `;
+  private bootstrapMsg: string;
+
+  public constructor() {
+    super();
+    this.bootstrapMsg = Router.LOGO_ASCII + "\n";
   }
 
   /**
@@ -52,80 +55,97 @@ ______           _         _
    * router.register(DinosaurController);
    * // router superclass now configured to use DinosaurController's actions
    * ```
+   *
+   * returns `Map<string, ControllerCallback>` containing all routes and
+   * callbacks mapped onto the oak router when `register` was called.
+   * Mainly used for testing.
    */
-  public register(controller: Newable<any>): void {
+  public register(controller: Newable<any>): Map<string, ControllerCallback> {
+    const fnMapping: Map<string, ControllerCallback> = new Map<string, ControllerCallback>();
     const instance: any = new controller();
-
     const meta: ControllerMetadata | undefined = getControllerOwnMeta(controller);
+
     if (!meta || !meta.prefix) {
       throw new Error("Attempted to register non-controller class to DactylRouter");
     }
-    console.info(`\t${meta.prefix}`);
+
+    this.appendToBootstrapMsg(`${meta.prefix}\n`);
 
     meta.routes.forEach((route: RouteDefinition): void => {
-      console.info(`\t\t[${route.requestMethod.toUpperCase()}] ${route.path}`);
 
-      // normalize path if required
-      let path: string = meta.prefix + route.path;
-      if (path.slice(-1) === "/") {
-        path = path.slice(0, -1);
-      }
+      this.appendToBootstrapMsg(`  [${route.requestMethod.toUpperCase()}] ${route.path}\n`);
+      // define callback here
+      const controllerCb: ControllerCallback = async (context: RouterContext): Promise<void> => {
+        // Retrieve data from context
+        const { params, headers, query, body } = await this.retrieveFromContext(context);
+        // Using the controller metadata and data from context, build controller args
+        const routeArgs: Array<any> = this.buildRouteArgumentsFromMeta(
+          meta.args,
+          route.methodName as string,
+          params,
+          body,
+          query,
+          headers,
+          context
+        );
+
+        // execute controller action and return appropriate responseBody and status
+        const [responseBody, responseStatus] = await this.executeControllerAction(instance, route, routeArgs, meta, context);
+
+        context.response.body = responseBody;
+        context.response.status = responseStatus;
+      };
 
       // Call routing function on OakRouter superclass
       this[route.requestMethod](
-        path,
-        async (context: RouterContext): Promise<void> => {
-          try {
-            const { params, headers, query, body } = await this.retrieveFromContext(context);
-
-            const routeArgs: any[] = this.buildRouteArgumentsFromMeta(
-              meta.args,
-              route.methodName as string,
-              params,
-              body,
-              query,
-              headers,
-              context
-            );
-
-            // call controller action here. Provide arguments injected via parameter
-            // decorator function metadata
-            const response: any = await instance[route.methodName as string](...routeArgs);
-
-            // controller action manually accesses context.request.body and returns nothing
-            // so return early
-            if (!response && context.response.body) return;
-              // controller action returned no data, and didn't attach anything to response
-            // body. Assume 204 no content.
-            else if (!response && !context.response.body) {
-              return this.sendNoData(context.response);
-            }
-
-            const statusCode: number =
-              meta.defaultResponseCodes.get(route.methodName) ||
-              (route.requestMethod == HttpMethod.POST ? 201 : 200);
-
-            // Assign body and status here before oak middleware moves to next
-            context.response.body = response;
-            context.response.status = statusCode;
-          } catch (error) {
-            // Handle known error here
-            if (error instanceof HttpException) {
-              const response: {
-                error: string | undefined;
-                status: Status;
-              } = error.getError();
-              // @ts-ignore
-              context.response.status = response.status;
-              context.response.body = response;
-            } else {
-              this.handleUnknownException(error, context.response);
-            }
-          }
-        }
+        this.normalizedPath(meta.prefix as string, route.path),
+        controllerCb,
       );
+      fnMapping.set(route.methodName as string, controllerCb);
     });
-    console.info("");
+    this.appendToBootstrapMsg("");
+    return fnMapping;
+  }
+
+  /**
+   * Helper function that executes controller action, once finished this
+   * determines the correct status and response body from
+   * what was returned from the controller action,
+   * and the `RouterContext`
+   */
+  private async executeControllerAction(
+    instance: any,
+    route: RouteDefinition,
+    args: Array<any>,
+    meta: ControllerMetadata,
+    context: RouterContext
+  ): Promise<Array<number | any>> {
+    let status: number = 200;
+    let body: any = {};
+    try {
+      const controllerResponse: any = await instance[route.methodName as string](...args);
+      if (!controllerResponse && context.response.body) {
+        status = context.response.status ?? this.getStatus(meta, route);
+        body = context.response.body;
+      } else if (!controllerResponse && !context.response.body) {
+        status = 204;
+        body = null;
+      } else {
+        status = this.getStatus(meta, route);
+        body = controllerResponse;
+      }
+    } catch (error) {
+      if (!(error instanceof HttpException)) {
+        console.error(error);
+        error = new InternalServerErrorException();
+      }
+      status = error.getError().status;
+      body = error.getError();
+
+    } finally {
+      return [body, status];
+    }
+
   }
 
   /**
@@ -144,7 +164,6 @@ ______           _         _
   }> {
     const url: URL = context.request.url;
     const headersRaw: Headers = context.request.headers;
-
     const params: any = context.params;
 
     const headers: any = {};
@@ -175,7 +194,7 @@ ______           _         _
     query: any,
     headers: any,
     context: RouterContext
-  ): any[] {
+  ): Array<any> {
     // Filter controller metadata to only include arg definitions
     // for this action
     const filteredArguments: RouteArgument[] = args.filter(
@@ -223,6 +242,30 @@ ______           _         _
   }
 
   /**
+   * Helper method for returning correct status code
+   *
+   * Return either the default response code specified by `@HttpStatus` Method Decorator
+   * or return default response `200`, or `201` if post
+   */
+  private getStatus(meta: ControllerMetadata, route: RouteDefinition): number {
+    const isPostRequest: boolean = route.requestMethod === HttpMethod.POST;
+    return meta.defaultResponseCodes.get(route.methodName) ?? (isPostRequest ? 201 : 200);
+  }
+
+  /**
+   * Helper method that combines controller prefix with route path.
+   *
+   * If the path terminates in `/`, slice it.
+   */
+  private normalizedPath(prefix: string, path: string) {
+    let normalizedPath: string = prefix + path;
+    if (normalizedPath.slice(-1) === "/") {
+      normalizedPath = normalizedPath.slice(0, -1);
+    }
+    return normalizedPath;
+  }
+
+  /**
    * middleware getter for the internal router. To be used in `Application` bootstrap
    * where appropriate, E.g.
    *
@@ -241,6 +284,13 @@ ______           _         _
   }
 
   /**
+   * Returns message to be displayed when application starts
+   */
+  public getBootstrapMsg(): string {
+    return this.bootstrapMsg;
+  }
+
+  /**
    * Helper method called when controller action returns no json, and
    * `RouterContext` `context.response.body` contains no body
    */
@@ -250,18 +300,11 @@ ______           _         _
   }
 
   /**
-   * Helper method for handling non-standard exceptions raised at runtime.
-   * This could be caused by an unhandled promise rejection, or a custom error
-   * thrown either internally or from an external module.
-   *
-   * Dactyl will send a 500 error to the end user.
+   * Helper that updates the internal bootstrap message. Used on application start
+   * to display on screen success.
    */
-  private handleUnknownException(error: any, res: any): void {
-    console.error(error);
-    res.status = Status.InternalServerError;
-    res.body = {
-      error: STATUS_TEXT.get(Status.InternalServerError),
-      status: Status.InternalServerError,
-    };
+  private appendToBootstrapMsg(msg: string): string {
+    this.bootstrapMsg += msg;
+    return this.bootstrapMsg;
   }
 }

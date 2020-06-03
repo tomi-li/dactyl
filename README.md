@@ -51,23 +51,21 @@ One caveat is to ensure you have a `tsconfig.json` file enabling `Reflect` and f
 This should result in the following output:
 
 ```
-_____           _         _
+______           _         _ 
 |  _  \         | |       | |
 | | | |__ _  ___| |_ _   _| |
 | | | / _` |/ __| __| | | | |
 | |/ / (_| | (__| |_| |_| | |
 |___/ \__,_|\___|\__|\__, |_| FRAMEWORK
-                      __/ |
-                      |___/
-
-Registered routes:
-
-        /dinosaur
-                [GET] /
-                [GET] /:id
-                [POST] /
-                [PUT] /:id
-                [DELETE] /:id
+                      __/ |  
+                      |___/   
+  
+/dinosaur
+  [GET] /
+  [GET] /:id
+  [POST] /
+  [PUT] /:id
+  [DELETE] /:id
 
 Dactyl running - please visit http://localhost:8000/
 ```
@@ -157,6 +155,25 @@ await app.run(8000);
 ```
 
 And away we go. This spins up a web server using oak with the appropriately registered routes based on your controller definitions.
+
+## Configuration
+
+There is additional configuration that you can pass to the application upon bootstrap:
+
+```ts
+const app: Application = new Application({
+  controllers: [DinosaurController],
+  config: {
+    cors: false, // true by default
+    timing: false, // true by default
+    log: false, // true by default
+  }
+});
+```
+1. `cors` - Enables CORS middleware (`true` by default). This sets the following headers to `*` on `context.response`: `access-control-allow-origin`, `access-control-allow-methods`, `access-control-allow-methods`.
+2. `timing` - Enables timing header middleware (`true` by default). This sets `X-Response-Time` header on `context.response`.
+3. `log` - Enables per-request logging (`true by default`). The message format is: `00:00:00 GMT+0000 (REGION) [GET] - /path/to/endpoint - [200 OK]`
+
 
 ## Exceptions
 

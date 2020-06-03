@@ -9,6 +9,7 @@ export {
   Router,
   Application,
   RouterContext,
+  Context,
   Response,
   Middleware,
 } from "https://deno.land/x/oak/mod.ts";

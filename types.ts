@@ -1,5 +1,6 @@
-// Copyright 2020 Liam Tan. All rights reserved. MIT license.
+import { RouterContext } from "./deps.ts";
 
+// Copyright 2020 Liam Tan. All rights reserved. MIT license.
 export enum HttpMethod {
   GET = "get",
   POST = "post",
@@ -59,9 +60,13 @@ export interface RouteArgument {
 /**
  * Root config for the `Application` class.
  */
-
 export interface ApplicationConfig {
   controllers: Array<Newable<any>>;
+  config?: {
+    timing?: boolean;
+    log?: boolean;
+    cors?: boolean;
+  }
 }
 /**
  * Definition for a class.
@@ -69,3 +74,8 @@ export interface ApplicationConfig {
 export interface Newable<T> {
   new (...args: any[]): T;
 }
+/**
+ * Structure of callback to be applied to Oak
+ * router
+ */
+export type ControllerCallback = (context: RouterContext) => Promise<void>;
