@@ -1,9 +1,25 @@
 // Copyright 2020 Liam Tan. All rights reserved. MIT license.
 
-import { Application as OakApplication, Response, Status, STATUS_TEXT } from "./deps.ts";
+import {
+  Application as OakApplication,
+  Response,
+  Status,
+  STATUS_TEXT,
+  walkSync,
+  _
+} from "./deps.ts";
 
 import { Router } from "./Router.ts";
 import { ApplicationConfig } from "./types.ts";
+
+
+// type FileInfo = {
+//   path: string;
+//   name: string;
+//   isFile: boolean;
+//   isDirectory: boolean,
+//   isSymlink: boolean,
+// }
 
 /**
  * Bootstrap class responsible for registering controllers
@@ -61,6 +77,7 @@ export class Application {
       };
     });
   }
+
   /**
    * Function responsible for begin listen of oak webserver.
    * Console notified when webserver begins.
@@ -69,6 +86,14 @@ export class Application {
    * an argument.
    */
   public async run(port: number): Promise<void> {
+
+    for (const fileInfo of walkSync("./example")) {
+      // @ts-ignore
+      if (fileInfo.isFile && _.endsWith(fileInfo.name, ".ts")) {
+        const module = await import("./" + fileInfo.path);
+        console.log(module);
+      }
+    }
     console.info(`Dactyl running - please visit http://localhost:${port}/\n\n[LOGS]`);
     this.app.listen({ port });
   }

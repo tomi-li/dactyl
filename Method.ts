@@ -2,6 +2,7 @@
 
 import { HttpMethod, ControllerMetadata } from "./types.ts";
 import { getControllerMeta, defaultMetadata, setControllerMeta } from "./metadata.ts";
+
 /**
  * Responsible for producing function decorators for all given HttpMethods.
  * Uses a curried function to return the function decorator.
@@ -41,6 +42,7 @@ export const defineRouteDecorator = (path: string = "/", requestMethod: HttpMeth
 export function Get(path?: string): MethodDecorator {
   return defineRouteDecorator(path, HttpMethod.GET);
 }
+
 /**
  * Method decorator function for mapping Put requests.
  *
@@ -61,6 +63,7 @@ export function Get(path?: string): MethodDecorator {
 export function Put(path?: string): MethodDecorator {
   return defineRouteDecorator(path, HttpMethod.PUT);
 }
+
 /**
  * Method decorator function for mapping Post requests.
  *
@@ -81,6 +84,7 @@ export function Put(path?: string): MethodDecorator {
 export function Post(path?: string): MethodDecorator {
   return defineRouteDecorator(path, HttpMethod.POST);
 }
+
 /**
  * Method decorator function for mapping Patch requests.
  *
@@ -101,6 +105,7 @@ export function Post(path?: string): MethodDecorator {
 export function Patch(path?: string): MethodDecorator {
   return defineRouteDecorator(path, HttpMethod.PATCH);
 }
+
 /**
  * Method decorator function for mapping Delete requests.
  *

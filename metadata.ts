@@ -18,7 +18,9 @@ export const CONTROLLER_META_PROPKEY = Symbol("dactyl_controller_metadata");
  * Helper method for retrieving metadata of controller definition
  */
 export function getControllerOwnMeta(target: Function): ControllerMetadata | undefined {
-  return Reflect.get(target, CONTROLLER_META_PROPKEY);
+  const reflect = Reflect.get(target, CONTROLLER_META_PROPKEY);
+  // console.log(reflect, '~~~~~~~!!!!!');
+  return reflect;
 }
 
 /**

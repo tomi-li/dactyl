@@ -2,6 +2,7 @@
 
 import { ControllerMetadata } from "./types.ts";
 import { getControllerOwnMeta, setControllerOwnMeta, defaultMetadata } from "./metadata.ts";
+
 /**
  * Controller Class decorator responsible for initialising metadata on the controller class.
  * Defines the `prefix` for all subsequent routes defined on the controller.

@@ -18,10 +18,19 @@ import {
   RouterContext,
   OakRequest,
   OakResponse,
+  di,
 } from "./deps.ts";
+import { IUserService, types } from "./interfaces.ts";
+
+const { Inject } = di;
 
 @Controller("/dinosaur")
 class DinosaurController {
+
+  @Inject(types.IUserService)
+    // @ts-ignore
+  userService: IUserService;
+
   @Get("/")
   @HttpStatus(200)
   getDinosaurs(@Query("orderBy") orderBy: any, @Query("sort") sort: any) {
@@ -36,11 +45,15 @@ class DinosaurController {
       if (sort === "desc") dinosaurs.reverse();
     }
 
+    console.log(this.userService);
+
     return {
       message: "Action returning all dinosaurs! Defaults to 200 status!",
       data: dinosaurs,
+
     };
   }
+
   @Get("/:id")
   getDinosaurById(@Param("id") id: any, @Header("content-type") contentType: any) {
     return {
@@ -48,6 +61,7 @@ class DinosaurController {
       ContentType: contentType,
     };
   }
+
   @Post("/")
   createDinosaur(@Body("name") name: any) {
     if (!name) {
@@ -57,12 +71,14 @@ class DinosaurController {
       message: `Created dinosaur with name ${name}`,
     };
   }
+
   @Put("/:id")
   updateDinosaur(@Param("id") id: any, @Body() body: any) {
     return {
       message: `Updated name of dinosaur with id ${id} to ${body.name}`,
     };
   }
+
   @Delete("/:id")
   deleteDinosaur(
     @Context() ctx: RouterContext,

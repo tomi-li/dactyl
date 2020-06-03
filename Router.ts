@@ -36,6 +36,7 @@ ______           _         _
     `);
     console.info("Registered routes:\n");
   }
+
   /**
    * Register function consumed by `Application`, takes controller
    * class definition and strips it's metadata. From this metadata,
@@ -94,7 +95,7 @@ ______           _         _
             // controller action manually accesses context.request.body and returns nothing
             // so return early
             if (!response && context.response.body) return;
-            // controller action returned no data, and didn't attach anything to response
+              // controller action returned no data, and didn't attach anything to response
             // body. Assume 204 no content.
             else if (!response && !context.response.body) {
               return this.sendNoData(context.response);
@@ -114,6 +115,7 @@ ______           _         _
                 error: string | undefined;
                 status: Status;
               } = error.getError();
+              // @ts-ignore
               context.response.status = response.status;
               context.response.body = response;
             } else {
@@ -125,6 +127,7 @@ ______           _         _
     });
     console.info("");
   }
+
   /**
    * Helper function for deconstructing Oaks `RouterContext` context
    * object. Retreives `context.params`, `context.request.headers`,
@@ -218,6 +221,7 @@ ______           _         _
       }
     });
   }
+
   /**
    * middleware getter for the internal router. To be used in `Application` bootstrap
    * where appropriate, E.g.
@@ -235,6 +239,7 @@ ______           _         _
   public middleware(): Middleware {
     return this.routes();
   }
+
   /**
    * Helper method called when controller action returns no json, and
    * `RouterContext` `context.response.body` contains no body
@@ -243,6 +248,7 @@ ______           _         _
     // Send 204 No Content.
     res.status = Status.NoContent;
   }
+
   /**
    * Helper method for handling non-standard exceptions raised at runtime.
    * This could be caused by an unhandled promise rejection, or a custom error
