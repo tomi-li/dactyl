@@ -12,15 +12,8 @@ import {
 
 import { Router } from "./Router.ts";
 import { ApplicationConfig } from "./types.ts";
+import { TAGGED_CLS } from "./util/metakeys.ts";
 
-
-// type FileInfo = {
-//   path: string;
-//   name: string;
-//   isFile: boolean;
-//   isDirectory: boolean,
-//   isSymlink: boolean,
-// }
 
 /**
  * Bootstrap class responsible for registering controllers
@@ -68,11 +61,13 @@ export class Application {
    * an argument.
    */
   public async run(port: number): Promise<void> {
-    for (const fileInfo of walkSync("./example")) {
+    for (const fileInfo of walkSync("./example/services")) {
       // @ts-ignore
       if (fileInfo.isFile && _.endsWith(fileInfo.name, ".ts")) {
         const module = await import("./" + fileInfo.path);
-        console.log(module);
+        // @ts-ignore
+        const metaData = Reflect.getMetadata(TAGGED_CLS, module.default);
+        console.log(metaData, "~~~~~~~", module.default);
       }
     }
     console.info(`Dactyl running - please visit http://localhost:${port}/\n\n[LOGS]`);

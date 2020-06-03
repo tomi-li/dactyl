@@ -3,10 +3,9 @@ import { IUserService, IVideoService, types } from "../interfaces.ts";
 
 const { Inject, Service } = di;
 
-@Service()
-class UserService implements IUserService {
+@Provider("123")
+export default class UserService implements IUserService {
 
-  @Inject(types.IVideoService)
   // @ts-ignore
   private videoService: IVideoService;
 
@@ -16,5 +15,3 @@ class UserService implements IUserService {
   }
 
 }
-
-export default UserService;
