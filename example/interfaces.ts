@@ -1,9 +1,9 @@
 export interface IVideoService {
-
+  list: () => {}
 }
 
 export interface IUserService {
-
+  list: () => {}
 }
 
 

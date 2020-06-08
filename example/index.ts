@@ -2,7 +2,7 @@
 
 import { Application } from "./deps.ts";
 
-import DinosaurController from "./DinosaurController.ts";
+import DinosaurController from "./controllers/DinosaurController.ts";
 
 const app: Application = new Application({
   controllers: [DinosaurController],

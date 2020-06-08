@@ -1,15 +1,11 @@
 import { Provider, RouterContext, di } from "../deps.ts";
 import { IVideoService } from "../interfaces.ts";
 
-const { Inject, Service } = di;
+@Provider("videoService")
+export default class VideoService implements IVideoService {
 
-@Service()
-class VideoService implements IVideoService {
-
-  async list() {
-
+  list() {
+    return [123, 234, 345];
   }
 
 }
-
-export default VideoService;

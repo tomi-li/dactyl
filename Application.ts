@@ -12,7 +12,8 @@ import {
 
 import { Router } from "./Router.ts";
 import { ApplicationConfig } from "./types.ts";
-import { TAGGED_CLS } from "./util/metakeys.ts";
+import { TAGGED_CLS, TAGGED_PROP } from "./util/metakeys.ts";
+import { ObjectDefination } from "./di/ObjectDefination.ts";
 
 
 /**
@@ -22,6 +23,7 @@ import { TAGGED_CLS } from "./util/metakeys.ts";
 export class Application {
   private router: Router;
   private app: OakApplication;
+  private providerMap = new Map<string, ObjectDefination>();
 
   public constructor(appConfig: ApplicationConfig) {
     const config: ApplicationConfig["config"] = appConfig.config ?? {};
@@ -61,15 +63,50 @@ export class Application {
    * an argument.
    */
   public async run(port: number): Promise<void> {
-    for (const fileInfo of walkSync("./example/services")) {
+    for (const fileInfo of walkSync("./services")) {
       // @ts-ignore
       if (fileInfo.isFile && _.endsWith(fileInfo.name, ".ts")) {
-        const module = await import("./" + fileInfo.path);
+        const module = await import("./example/" + fileInfo.path);
         // @ts-ignore
         const metaData = Reflect.getMetadata(TAGGED_CLS, module.default);
-        console.log(metaData, "~~~~~~~", module.default);
+        // @ts-ignore
+        const metaProps = Reflect.getMetadata(TAGGED_PROP, module.default);
+
+        this.providerMap.set(metaData.id, new ObjectDefination(metaData.id, metaData.originName, metaProps, module.default, metaData.clz));
       }
     }
+
+    for (const fileInfo of walkSync("./controllers")) {
+      // @ts-ignore
+      if (fileInfo.isFile && _.endsWith(fileInfo.name, ".ts")) {
+        const module = await import("./example/" + fileInfo.path);
+        // @ts-ignore
+        const metaData = Reflect.getMetadata(TAGGED_CLS, module.default);
+        // @ts-ignore
+        const metaProps = Reflect.getMetadata(TAGGED_PROP, module.default);
+
+        this.providerMap.set(metaData.id, new ObjectDefination(metaData.id, metaData.originName, metaProps, module.default, metaData.clz));
+      }
+    }
+
+    for (const [key, value] of this.providerMap) {
+      const { id, objConstructor, properties } = value;
+      for (const prop of (properties || [])) {
+        // console.log(propName, objConstructor);
+        // @ts-ignore
+        Reflect.defineProperty(prop.clz, prop.targetKey, {
+          get: () => {
+            // @ts-ignore
+            const cons = this.providerMap.get(prop.targetKey);
+            // @ts-ignore
+            return new cons.objConstructor();
+          },
+          configurable: false,
+          enumerable: true,
+        });
+      }
+    }
+
     console.info(`Dactyl running - please visit http://localhost:${port}/\n\n[LOGS]`);
     const bootstrapMsg: string = this.router.getBootstrapMsg();
     this.app.listen({ port });

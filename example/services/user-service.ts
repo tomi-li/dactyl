@@ -1,17 +1,18 @@
-import { Provider, RouterContext, di } from "../deps.ts";
+import { Provider, RouterContext, Inject, di } from "../deps.ts";
 import { IUserService, IVideoService, types } from "../interfaces.ts";
+import { TAGGED_CLS } from "../../util/metakeys.ts";
 
-const { Inject, Service } = di;
 
-@Provider("123")
+@Provider("userService")
 export default class UserService implements IUserService {
 
-  // @ts-ignore
-  private videoService: IVideoService;
+  @Inject()
+    // @ts-ignore
+  videoService: IVideoService;
 
   async list() {
-    // console.log(this.ctx);
-    console.log(this.videoService);
+    // @ts-ignore
+    return [...this.videoService.list(), "userList"];
   }
 
 }
